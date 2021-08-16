@@ -4,7 +4,7 @@ services:
 
   kong-database:
     image: postgres:9.6
-    container_name: kong-database-compose
+    container_name: kong-database-compose-1
     ports:
       - 5432:5432
     environment:
@@ -32,7 +32,7 @@ services:
 
   kong:
     image: kong
-    container_name: kong-compose
+    container_name: kong-compose-1
     environment:
       - LC_CTYPE=en_US.UTF-8
       - LC_ALL=en_US.UTF-8
@@ -65,14 +65,51 @@ services:
       - 1337:1337
     links:
       - kong:kong
-    container_name: konga-compose
+    container_name: konga-compose-1
     networks:
       - kong-net
     environment:
       - NODE_ENV=production
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/promtheus
+    command:
+     - '--config.file=/etc/prometheus/prometheus.yml'
+    ports:
+      - 9090:9090
+    restart: always
+    networks:
+      - kong-net
+
+  node_exporter:
+    image: prom/node-exporter:latest
+    container_name: node_exporter
+    ports:
+      - 9100:9100
+    restart: always
+    networks:
+      - kong-net
+
+  grafana:
+    image: grafana/grafana:5.1.0
+    ports:
+      - 3000:3000
+    networks:
+      - kong-net
+    # volumes: 
+    #   - grafana_data:/var/lib/grafana
+    # environment:
+    #   - GF_SECURITY_ADMIN_PASSWORD=admin
+    # depends_on:
+    #   - prometheus
+
 volumes:
   db-data-kong-postgres:
+  prometheus_data:
 
 networks:
   kong-net:
