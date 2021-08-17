@@ -4,7 +4,7 @@ services:
 
   kong-database:
     image: postgres:9.6
-    container_name: kong-database-compose-1
+    container_name: kong-database
     ports:
       - 5432:5432
     environment:
@@ -24,15 +24,20 @@ services:
       - KONG_PG_PASSWORD=kong
       - KONG_CASSANDRA_CONTACT_POINTS=kong-database
     command: kong migrations bootstrap
-    restart: on-failure
     networks:
       - kong-net
     depends_on:
       - kong-database
+    restart: on-failure
 
   kong:
     image: kong
-    container_name: kong-compose-1
+    container_name: kong
+    ports:
+      - 8000:8000
+      - 8443:8443
+      - 8001:8001
+      - 8444:8444
     environment:
       - LC_CTYPE=en_US.UTF-8
       - LC_ALL=en_US.UTF-8
@@ -46,70 +51,67 @@ services:
       - KONG_PROXY_ERROR_LOG=/dev/stderr
       - KONG_ADMIN_ERROR_LOG=/dev/stderr
       - KONG_ADMIN_LISTEN=0.0.0.0:8001, 0.0.0.0:8444 ssl
-    restart: on-failure
-    ports:
-      - 8000:8000
-      - 8443:8443
-      - 8001:8001
-      - 8444:8444
-    links:
-      - kong-database:kong-database
     networks:
       - kong-net
+    links:
+      - kong-database:kong-database
     depends_on:
       - kong-migrations
+    restart: on-failure
 
   konga:
     image: pantsel/konga
+    container_name: konga
     ports:
       - 1337:1337
-    links:
-      - kong:kong
-    container_name: konga-compose-1
-    networks:
-      - kong-net
     environment:
       - NODE_ENV=production
+    networks:
+      - kong-net
+    links:
+      - kong:kong
 
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
+    ports:
+      - 9090:9090
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/promtheus
     command:
      - '--config.file=/etc/prometheus/prometheus.yml'
-    ports:
-      - 9090:9090
-    restart: always
     networks:
       - kong-net
+    restart: always
 
   node_exporter:
     image: prom/node-exporter:latest
     container_name: node_exporter
     ports:
       - 9100:9100
-    restart: always
     networks:
       - kong-net
+    restart: always
 
   grafana:
-    image: grafana/grafana:5.1.0
+    image: grafana/grafana:latest
+    container_name: grafana
     ports:
       - 3000:3000
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes: 
+      - grafana_data:/var/lib/grafana
     networks:
       - kong-net
-    # volumes: 
-    #   - grafana_data:/var/lib/grafana
-    # environment:
-    #   - GF_SECURITY_ADMIN_PASSWORD=admin
-    # depends_on:
-    #   - prometheus
+    depends_on:
+      - prometheus
 
 volumes:
   db-data-kong-postgres:
   prometheus_data:
+  grafana_data:
 
 networks:
   kong-net:
